@@ -1,0 +1,105 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import { useSpring, animated } from '@react-spring/web';
+import { TextField, Button, Container } from '@mui/material';
+import { Provider, useDispatch, useSelector } from 'react-redux';
+import { configureStore, createSlice } from '@reduxjs/toolkit';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
+// Redux setup
+const userSlice = createSlice({
+  name: 'user',
+  initialState: { name: '', address: '', email: '', phone: '', userId: '' },
+  reducers: {
+    updateUser: (state, action) => {
+      return { ...state, ...action.payload };
+    },
+    generateUserId: (state) => {
+      state.userId = 'USER' + Math.floor(Math.random() * 10000);
+    },
+  },
+});
+const store = configureStore({ reducer: { user: userSlice.reducer } });
+
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  const backgroundAnimation = useSpring({ backgroundColor: `rgba(0,0,255,${count / 10})` });
+
+  return (
+    <animated.div style={{ ...backgroundAnimation, padding: '20px', textAlign: 'center' }}>
+      <h2>Counter: {count}</h2>
+      <Button onClick={() => setCount(count + 1)}>+</Button>
+      <Button onClick={() => setCount(count - 1)}>-</Button>
+      <Button onClick={() => setCount(0)}>Reset</Button>
+    </animated.div>
+  );
+};
+
+const UserForm = () => {
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.user);
+  const [formData, setFormData] = useState(user);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (JSON.stringify(formData) !== JSON.stringify(user)) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [formData, user]);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSave = () => {
+    dispatch(userSlice.actions.updateUser(formData));
+    dispatch(userSlice.actions.generateUserId());
+    localStorage.setItem('userData', JSON.stringify(formData));
+  };
+
+  return (
+    <Container>
+      <TextField label='Name' name='name' value={formData.name} onChange={handleChange} />
+      <TextField label='Address' name='address' value={formData.address} onChange={handleChange} />
+      <TextField label='Email' name='email' value={formData.email} onChange={handleChange} />
+      <TextField label='Phone' name='phone' value={formData.phone} onChange={handleChange} />
+      <Button onClick={handleSave}>Save</Button>
+    </Container>
+  );
+};
+
+const RichTextEditor = () => {
+  const user = useSelector((state) => state.user);
+  const [editorContent, setEditorContent] = useState('');
+
+  useEffect(() => {
+    setEditorContent(`Name: ${user.name}\nAddress: ${user.address}\nEmail: ${user.email}\nPhone: ${user.phone}`);
+  }, [user]);
+
+  return <ReactQuill value={editorContent} readOnly={true} theme='snow' />;
+};
+
+const App = () => {
+  return (
+    <Provider store={store}>
+      <Router>
+        <nav>
+          <Link to='/'>Home</Link> | <Link to='/counter'>Counter</Link> | <Link to='/form'>User Form</Link> | <Link to='/editor'>Editor</Link>
+        </nav>
+        <Routes>
+          <Route path='/counter' element={<Counter />} />
+          <Route path='/form' element={<UserForm />} />
+          <Route path='/editor' element={<RichTextEditor />} />
+          <Route path='/' element={<h1>Welcome to the React Project</h1>} />
+        </Routes>
+      </Router>
+    </Provider>
+  );
+};
+
+export default App;
